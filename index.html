@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marceli — PR Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface-hover: #1c2129;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --purple: #bc8cff;
+      --orange: #d29922;
+      --open: #3fb950;
+      --merged: #bc8cff;
+      --closed: #f85149;
+      --radius: 8px;
+      --transition: 0.2s;
+    }
+
+    .light {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface-hover: #f3f4f6;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --text-muted: #656d76;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 32px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .header-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .header-left h1 { font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .header-left h1 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); display: inline-block; }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
+
+    .stats-row {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 12px 32px 0;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .stat-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition);
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .stat-pill:hover { border-color: var(--text-muted); }
+    .stat-pill.active { border-color: var(--accent); background: rgba(88,166,255,0.08); }
+    .stat-pill .num { font-weight: 700; font-size: 15px; }
+    .stat-pill .lbl { color: var(--text-muted); }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 12px 32px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 180px;
+      position: relative;
+    }
+    .search-box input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 8px 12px 8px 34px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .search-box input:focus { border-color: var(--accent); }
+    .search-box .search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      width: 14px; height: 14px; color: var(--text-muted);
+    }
+
+    .btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 13px;
+      transition: border-color var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .btn:hover { border-color: var(--accent); }
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+    .sort-select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 7px 10px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+    }
+    .sort-select:focus { border-color: var(--accent); }
+
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-track {
+      width: 30px; height: 17px;
+      background: var(--border);
+      border-radius: 9px;
+      position: relative;
+      transition: background var(--transition);
+    }
+    .toggle-track::after {
+      content: '';
+      width: 13px; height: 13px;
+      background: var(--text);
+      border-radius: 50%;
+      position: absolute;
+      top: 2px; left: 2px;
+      transition: transform var(--transition);
+    }
+    .toggle-wrap.on .toggle-track { background: var(--accent); }
+    .toggle-wrap.on .toggle-track::after { transform: translateX(13px); }
+
+    /* ── Main ── */
+    .main { max-width: 1400px; margin: 0 auto; padding: 12px 32px 32px; }
+
+    #app { min-height: 60vh; }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* ── Stats Overview ── */
+    .stats-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      text-align: center;
+    }
+    .stat-card .val { font-size: 26px; font-weight: 700; }
+    .stat-card .lbl { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .stat-card.open { border-left: 3px solid var(--open); }
+    .stat-card.merged { border-left: 3px solid var(--merged); }
+    .stat-card.closed { border-left: 3px solid var(--closed); }
+    .stat-card.stale { border-left: 3px solid var(--orange); }
+    .stat-card.rate { border-left: 3px solid var(--accent); }
+
+    /* ── Charts ── */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 800px) { .charts-row { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .chart-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-muted); }
+    .chart-card canvas { width: 100%; height: 200px; }
+
+    /* ── Repo Section ── */
+    .repo-section { margin-bottom: 24px; }
+    .repo-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 4px;
+      cursor: pointer;
+      transition: background var(--transition);
+    }
+    .repo-header:hover { background: var(--surface-hover); }
+    .repo-chevron { color: var(--text-muted); transition: transform var(--transition); flex-shrink: 0; }
+    .repo-chevron.collapsed { transform: rotate(-90deg); }
+    .repo-name { font-size: 15px; font-weight: 600; color: var(--accent); }
+    .repo-badge { font-size: 11px; padding: 1px 8px; border-radius: 12px; font-weight: 500; }
+    .badge-vercel { background: rgba(255,255,255,0.1); color: #fff; }
+    .badge-community { background: rgba(88,166,255,0.15); color: var(--accent); }
+    .badge-collaborator { background: rgba(139,92,246,0.15); color: #a78bfa; }
+    .badge-closed { background: rgba(248,81,73,0.12); color: var(--red); }
+
+    .repo-pr-count { color: var(--text-muted); font-size: 12px; margin-left: auto; display: flex; gap: 8px; }
+    .repo-pr-count span { display: flex; align-items: center; gap: 3px; }
+
+    .repo-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-left: 14px;
+    }
+
+    .repo-body { overflow: hidden; transition: max-height 0.3s ease; }
+    .repo-body.collapsed { max-height: 0 !important; }
+
+    .merge-progress { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+    .merge-progress-bar { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+
+    .timeline { display: flex; flex-direction: column; gap: 3px; }
+
+    /* ── PR Card ── */
+    .pr-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      transition: border-color var(--transition);
+      position: relative;
+    }
+    .pr-card:hover { border-color: var(--accent); }
+    .pr-card.stale { border-left: 3px solid var(--orange); }
+    .pr-card.aging { border-left: 3px solid var(--orange); border-left-width: 2px; }
+
+    .pr-icon {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .pr-icon svg { width: 13px; height: 13px; }
+    .pr-icon.open { background: rgba(63,185,80,0.15); color: var(--open); }
+    .pr-icon.merged { background: rgba(188,140,255,0.15); color: var(--merged); }
+    .pr-icon.closed { background: rgba(248,81,73,0.15); color: var(--closed); }
+
+    .pr-body { flex: 1; min-width: 0; }
+    .pr-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+    .pr-title a { color: var(--text); }
+    .pr-title a:hover { color: var(--accent); }
+
+    .pr-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .pr-status { font-weight: 600; font-size: 11px; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
+    .pr-status.open { color: var(--open); }
+    .pr-status.merged { color: var(--merged); }
+    .pr-status.closed { color: var(--closed); }
+    .pr-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .pr-dot.open { background: var(--open); }
+    .pr-dot.merged { background: var(--merged); }
+    .pr-dot.closed { background: var(--closed); }
+
+    .pr-label {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+
+    .pr-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .pr-right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .pr-date { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .pr-comments { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 3px; }
+
+    .stale-tag {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .stale-tag.stale { background: rgba(210,153,34,0.15); color: var(--orange); }
+    .stale-tag.aging { background: rgba(210,153,34,0.1); color: var(--orange); }
+
+    .copy-btn {
+      opacity: 0;
+      position: absolute;
+      right: 10px; top: 10px;
+      background: none; border: 1px solid var(--border);
+      color: var(--text-muted); padding: 2px 6px;
+      border-radius: 4px; cursor: pointer; font-size: 11px;
+      transition: all var(--transition);
+    }
+    .pr-card:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Repo Detail Page ── */
+    .back-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    .back-bar a { color: var(--accent); cursor: pointer; display: flex; align-items: center; gap: 4px; }
+
+    .repo-detail-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .repo-detail-header h2 { font-size: 24px; }
+
+    .detail-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    /* ── Auth ── */
+    .auth-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition);
+    }
+    .auth-modal-overlay.show { opacity: 1; pointer-events: auto; }
+
+    .auth-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      max-width: 420px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .auth-modal h2 { font-size: 20px; margin-bottom: 8px; text-align: center; }
+    .auth-modal p { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 20px; line-height: 1.5; }
+    .auth-modal input[type="text"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 12px;
+      font-family: monospace;
+    }
+    .auth-modal input:focus { border-color: var(--accent); }
+    .auth-modal .btn { width: 100%; justify-content: center; padding: 10px; font-size: 14px; }
+    .auth-modal .error { color: var(--red); font-size: 12px; text-align: center; margin-top: 8px; }
+    .auth-modal .success { color: var(--green); font-size: 14px; text-align: center; }
+    .auth-close {
+      float: right;
+      background: none; border: none; color: var(--text-muted);
+      font-size: 20px; cursor: pointer;
+    }
+
+    .auth-status {
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 12px;
+    }
+    .auth-status.anon { border: 1px solid var(--border); color: var(--text-muted); }
+    .auth-status.authenticated { background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.3); color: var(--green); }
+    .auth-status .avatar { width: 18px; height: 18px; border-radius: 50%; }
+
+    /* ── Export modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition);
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; }
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal-box h2 { font-size: 18px; margin-bottom: 12px; }
+    .modal-box label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+    .modal-box textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-family: monospace;
+      resize: vertical;
+      min-height: 120px;
+      outline: none;
+    }
+    .modal-actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+
+    /* ── Toast ── */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 600;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+    }
+    .toast {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 10px 20px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      transform: translateY(20px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    /* ── Keyboard hint ── */
+    .kbd-hint {
+      position: fixed;
+      bottom: 20px; right: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition);
+      z-index: 200;
+    }
+    .kbd-hint.show { opacity: 1; pointer-events: auto; }
+    kbd { background: var(--border); padding: 1px 5px; border-radius: 3px; font-family: monospace; font-size: 11px; }
+
+    .loading { text-align: center; padding: 60px; color: var(--text-muted); font-size: 14px; }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-msg { text-align: center; padding: 48px; color: var(--text-muted); }
+    .error-msg { text-align: center; padding: 48px; color: var(--red); }
+
+    @media (max-width: 640px) {
+      .header { padding: 10px 14px; }
+      .stats-row { padding: 8px 14px 0; }
+      .toolbar { padding: 8px 14px 0; }
+      .main { padding: 8px 14px 16px; }
+      .pr-card { flex-direction: column; gap: 6px; }
+      .pr-right { text-align: left; flex-direction: row; flex-wrap: wrap; }
+      .copy-btn { display: none; }
+      .charts-row { grid-template-columns: 1fr; }
+      .stats-overview { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-inner">
+      <div class="header-left">
+        <h1 onclick="navigateTo('/')"><span class="dot"></span> PR Dashboard</h1>
+      </div>
+      <div class="header-right">
+        <span class="auth-status anon" id="authStatus" onclick="showAuthModal()" style="cursor:pointer">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a4 4 0 00-4 4c0 1.2.45 2.2 1.2 3h-.05c-.7 0-1.35.25-1.85.7A3.8 3.8 0 002 12v1c0 .55.45 1 1 1h10c.55 0 1-.45 1-1v-1a3.8 3.8 0 00-1.3-2.8c-.5-.45-1.15-.7-1.85-.7h-.05A5 5 0 0012 5a4 4 0 00-4-4zm0 1.5c1.4 0 2.5 1.1 2.5 2.5S9.4 7.5 8 7.5 5.5 6.4 5.5 5 6.6 2.5 8 2.5zm-4 8c-.7 0-1.5.8-1.5 1.5v.5h11v-.5c0-.7-.8-1.5-1.5-1.5z"/></svg>
+          <span id="authLabel">Anonymous</span>
+        </span>
+        <button class="btn btn-sm" onclick="toggleTheme()" title="Toggle theme">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 000 14A5 5 0 018 1z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="app">
+    <div class="loading"><div class="spinner"></div><div>Loading PRs...</div></div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="kbd-hint" id="kbdHint">
+    <div><kbd>/</kbd> Search &nbsp; <kbd>Esc</kbd> Clear</div>
+    <div><kbd>j</kbd><kbd>k</kbd> Navigate &nbsp; <kbd>r</kbd> Refresh</div>
+    <div><kbd>1</kbd>–<kbd>4</kbd> Filter &nbsp; <kbd>c</kbd> Collapse</div>
+    <div><kbd>?</kbd> Hide</div>
+  </div>
+
+  <div class="auth-modal-overlay" id="authModal">
+    <div class="auth-modal">
+      <button class="auth-close" onclick="closeAuthModal()">&times;</button>
+      <h2>GitHub Login</h2>
+      <p>Enter a <a href="https://github.com/settings/tokens" target="_blank">GitHub Personal Access Token</a> with <code>repo</code> scope to enable live data, CI status, and notifications.</p>
+      <input type="text" id="patInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+      <button class="btn btn-primary" onclick="savePAT()">Sign In</button>
+      <div id="authError" class="error"></div>
+      <div id="authSuccess" class="success" style="display:none">Signed in successfully!</div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="exportModal">
+    <div class="modal-box">
+      <h2>Export PRs</h2>
+      <label>CSV data (copy this):</label>
+      <textarea id="exportText" readonly></textarea>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeExportModal()">Close</button>
+        <button class="btn btn-primary" onclick="copyExport()">Copy to Clipboard</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─────────────────────────────────────────────
+    // State
+    // ─────────────────────────────────────────────
+    const STATE = {
+      allPRs: [],           // [{ pr, repo, type }]
+      repoGroups: {},       // { repoName: { prs: [...], type, forkRepo } }
+      generatedAt: null,
+      currentFilter: 'all', // 'all' | 'open' | 'merged' | 'closed'
+      currentRepo: null,    // null or repo name for per-repo view
+      searchQuery: '',
+      sortBy: 'updated',
+      highlightedIdx: -1,
+      autoRefresh: true,
+      refreshTimer: null,
+      collapsedRepos: new Set(),
+      // auth
+      token: null,
+      user: null,
+      // theme
+      theme: 'dark',
+    };
+
+    function getStored(key, def) {
+      try { const v = localStorage.getItem('prdash_' + key); return v !== null ? JSON.parse(v) : def; }
+      catch { return def; }
+    }
+    function setStored(key, val) { localStorage.setItem('prdash_' + key, JSON.stringify(val)); }
+
+    // ─────────────────────────────────────────────
+    // Toast
+    // ─────────────────────────────────────────────
+    let toastId = 0;
+    function showToast(msg, duration) {
+      duration = duration || 2500;
+      const c = document.getElementById('toastContainer');
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.id = 't' + (++toastId);
+      el.textContent = msg;
+      c.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('show'));
+      setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, duration);
+    }
+
+    // ─────────────────────────────────────────────
+    // Theme
+    // ─────────────────────────────────────────────
+    function toggleTheme() {
+      STATE.theme = STATE.theme === 'dark' ? 'light' : 'dark';
+      document.body.classList.toggle('light', STATE.theme === 'light');
+      setStored('theme', STATE.theme);
+    }
+    (function initTheme() {
+      STATE.theme = getStored('theme', 'dark');
+      document.body.classList.toggle('light', STATE.theme === 'light');
+    })();
+
+    // ─────────────────────────────────────────────
+    // Auth
+    // ─────────────────────────────────────────────
+    async function initAuth() {
+      STATE.token = getStored('token', null);
+      if (STATE.token) {
+        try {
+          const r = await fetch('https://api.github.com/user', {
+            headers: { Authorization: 'Bearer ' + STATE.token, Accept: 'application/vnd.github.v3+json' }
+          });
+          if (r.ok) {
+            STATE.user = await r.json();
+            updateAuthUI();
+            return;
+          }
+        } catch {}
+        STATE.token = null;
+        STATE.user = null;
+        setStored('token', null);
+      }
+      updateAuthUI();
+    }
+
+    function updateAuthUI() {
+      const el = document.getElementById('authStatus');
+      const label = document.getElementById('authLabel');
+      if (STATE.user) {
+        el.className = 'auth-status authenticated';
+        el.innerHTML = `<img class="avatar" src="${STATE.user.avatar_url}" alt=""> ${STATE.user.login}`;
+      } else {
+        el.className = 'auth-status anon';
+        el.innerHTML = `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a4 4 0 00-4 4c0 1.2.45 2.2 1.2 3h-.05c-.7 0-1.35.25-1.85.7A3.8 3.8 0 002 12v1c0 .55.45 1 1 1h10c.55 0 1-.45 1-1v-1a3.8 3.8 0 00-1.3-2.8c-.5-.45-1.15-.7-1.85-.7h-.05A5 5 0 0012 5a4 4 0 00-4-4zm0 1.5c1.4 0 2.5 1.1 2.5 2.5S9.4 7.5 8 7.5 5.5 6.4 5.5 5 6.6 2.5 8 2.5zm-4 8c-.7 0-1.5.8-1.5 1.5v.5h11v-.5c0-.7-.8-1.5-1.5-1.5z"/></svg> <span>Anonymous</span>`;
+      }
+    }
+
+    function showAuthModal() { document.getElementById('authModal').classList.add('show'); }
+    function closeAuthModal() { document.getElementById('authModal').classList.remove('show'); document.getElementById('authError').textContent = ''; }
+
+    async function savePAT() {
+      const pat = document.getElementById('patInput').value.trim();
+      if (!pat) return;
+      const errorEl = document.getElementById('authError');
+      errorEl.textContent = '';
+      try {
+        const r = await fetch('https://api.github.com/user', {
+          headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github.v3+json' }
+        });
+        if (!r.ok) { errorEl.textContent = 'Invalid token. Check scope and try again.'; return; }
+        STATE.token = pat;
+        STATE.user = await r.json();
+        setStored('token', pat);
+        updateAuthUI();
+        document.getElementById('authSuccess').style.display = 'block';
+        setTimeout(() => { closeAuthModal(); document.getElementById('authSuccess').style.display = 'none'; }, 1500);
+        showToast('Signed in as ' + STATE.user.login);
+      } catch (e) { errorEl.textContent = 'Network error: ' + e.message; }
+    }
+
+    // ─────────────────────────────────────────────
+    // API — fetch PRs
+    // ─────────────────────────────────────────────
+    async function fetchPRs() {
+      try {
+        const res = await fetch('prs.json?' + Date.now());
+        if (!res.ok) throw new Error('Failed to load prs.json');
+        const data = await res.json();
+        STATE.generatedAt = data.generated_at || null;
+        const items = data.prs || data;
+        const repoGroups = {};
+        const allPRs = [];
+
+        for (const item of items) {
+          const pr = item.pr || item;
+          const upstreamRepo = item.upstreamRepo || getUpstreamRepo(pr);
+          const type = item.type || null;
+          const repoName = upstreamRepo || getUpstreamRepo(pr);
+          if (!repoName) continue;
+
+          if (!repoGroups[repoName]) repoGroups[repoName] = { prs: [], type, forkRepo: upstreamRepo };
+          else if (type && !repoGroups[repoName].type) repoGroups[repoName].type = type;
+
+          repoGroups[repoName].prs.push(pr);
+          allPRs.push({ pr, repo: repoName, type });
+        }
+
+        STATE.repoGroups = repoGroups;
+        STATE.allPRs = allPRs;
+
+        // If authenticated, enrich with CI / check-run data in background
+        if (STATE.token) {
+          enrichWithCheckRuns(allPRs);
+        }
+
+        renderApp();
+      } catch (e) {
+        document.getElementById('app').innerHTML = `<div class="error-msg">Failed to load PR data. Run <code>.\\refresh.ps1</code> to regenerate.<br>${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    function getUpstreamRepo(pr) {
+      const m = pr.url && pr.url.match(/repos\/([^/]+\/[^/]+)\/issues/);
+      return m ? m[1] : null;
+    }
+
+    function escapeHtml(s) {
+      if (!s) return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // ─────────────────────────────────────────────
+    // CI / Check-run enrichment (authenticated only)
+    // ─────────────────────────────────────────────
+    async function enrichWithCheckRuns(prs) {
+      const repoPRs = {};
+      for (const item of prs) {
+        const pr = item.pr;
+        if (!pr.head || !pr.head.sha) {
+          // Search API results don't have head; try fetching PR detail
+          if (STATE.token && item._checking !== false) {
+            item._checking = false;
+            const parts = item.repo ? item.repo.split('/') : [];
+            if (parts.length === 2) {
+              try {
+                const r = await fetch(`https://api.github.com/repos/${parts[0]}/${parts[1]}/pulls/${pr.number}`, {
+                  headers: { Authorization: 'Bearer ' + STATE.token, Accept: 'application/vnd.github.v3+json' }
+                });
+                if (r.ok) {
+                  const detail = await r.json();
+                  if (detail.head && detail.head.sha) {
+                    pr.head = detail.head;
+                    pr._sha = detail.head.sha;
+                  }
+                }
+              } catch { /* skip */ }
+            }
+          }
+          continue;
+        }
+        const ref = pr.head.sha;
+        if (!repoPRs[item.repo]) repoPRs[item.repo] = [];
+        repoPRs[item.repo].push({ pr, ref });
+      }
+
+      for (const [repo, entries] of Object.entries(repoPRs)) {
+        const parts = repo.split('/');
+        if (parts.length !== 2) continue;
+        // Fetch check runs for latest commit of each PR (rate-limit aware, max 5)
+        const batch = entries.slice(0, 5);
+        for (const { pr, ref } of batch) {
+          try {
+            const r = await fetch(`https://api.github.com/repos/${parts[0]}/${parts[1]}/commits/${ref}/check-runs`, {
+              headers: { Authorization: 'Bearer ' + STATE.token, Accept: 'application/vnd.github.v3+json' }
+            });
+            if (r.ok) {
+              const data = await r.json();
+              pr._checkRuns = (data.check_runs || []).slice(0, 5);
+            }
+          } catch { /* skip */ }
+        }
+      }
+      // Re-render to show check-run data
+      renderApp();
+    }
+
+    // ─────────────────────────────────────────────
+    // Stats computation
+    // ─────────────────────────────────────────────
+    function computeStats(prs) {
+      const now = new Date();
+      const stats = {
+        total: 0, open: 0, merged: 0, closed: 0,
+        stale: 0, aging: 0,
+        createdThisWeek: 0, mergedThisWeek: 0,
+        // per-week buckets for chart (last 12 weeks)
+        weeklyCreated: [],
+        weeklyMerged: [],
+        // per-repo stats
+        repoStats: {},
+      };
+
+      // Build week buckets
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - d.getDay() - i * 7);
+        const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        stats.weeklyCreated.push({ label, count: 0 });
+        stats.weeklyMerged.push({ label, count: 0 });
+      }
+
+      const weekStart = new Date(now);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      weekStart.setHours(0,0,0,0);
+
+      const weekStartMs = weekStart.getTime();
+      const monthMs = 30 * 24 * 60 * 60 * 1000;
+      const twoWeekMs = 14 * 24 * 60 * 60 * 1000;
+
+      for (const item of prs) {
+        const pr = item.pr;
+        stats.total++;
+
+        // Status counts
+        if (pr.merged_at) stats.merged++;
+        else if (pr.state === 'open') stats.open++;
+        else stats.closed++;
+
+        // Stale / aging (based on last update)
+        if (pr.state === 'open') {
+          const updated = new Date(pr.updated_at).getTime();
+          const age = now.getTime() - updated;
+          if (age > monthMs) stats.stale++;
+          else if (age > twoWeekMs) stats.aging++;
+        }
+
+        // Weekly created
+        const created = new Date(pr.created_at).getTime();
+        const weekIndex = Math.min(11, Math.max(0, Math.floor((now.getTime() - created) / (7 * 24 * 60 * 60 * 1000))));
+        stats.weeklyCreated[11 - weekIndex].count++;
+
+        // Weekly merged
+        if (pr.merged_at) {
+          const merged = new Date(pr.merged_at).getTime();
+          const mWeek = Math.min(11, Math.max(0, Math.floor((now.getTime() - merged) / (7 * 24 * 60 * 60 * 1000))));
+          stats.weeklyMerged[11 - mWeek].count++;
+
+          if (merged >= weekStartMs) stats.mergedThisWeek++;
+        }
+
+        if (created >= weekStartMs) stats.createdThisWeek++;
+
+        // Per-repo stats
+        if (!stats.repoStats[item.repo]) stats.repoStats[item.repo] = { total: 0, open: 0, merged: 0, closed: 0 };
+        const rs = stats.repoStats[item.repo];
+        rs.total++;
+        if (pr.merged_at) rs.merged++;
+        else if (pr.state === 'open') rs.open++;
+        else rs.closed++;
+      }
+
+      return stats;
+    }
+
+    // ─────────────────────────────────────────────
+    // Chart drawing
+    // ─────────────────────────────────────────────
+    function drawDonut(canvasId, data) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = rect.width - 32;
+      const h = 200;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.scale(dpr, dpr);
+
+      const total = data.reduce((s, d) => s + d.value, 0);
+      if (total === 0) return;
+
+      const cx = w * 0.35, cy = h / 2, r = Math.min(w * 0.25, h * 0.35);
+      const innerR = r * 0.55;
+      let startAngle = -Math.PI / 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      for (const d of data) {
+        if (d.value === 0) continue;
+        const slice = (d.value / total) * 2 * Math.PI;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, startAngle, startAngle + slice);
+        ctx.arc(cx, cy, innerR, startAngle + slice, startAngle, true);
+        ctx.closePath();
+        ctx.fillStyle = d.color;
+        ctx.fill();
+        startAngle += slice;
+      }
+
+      // Center text
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text').trim() || '#e6edf3';
+      ctx.font = 'bold 22px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(total, cx, cy - 6);
+      ctx.font = '11px -apple-system, sans-serif';
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-muted').trim() || '#8b949e';
+      ctx.fillText('Total PRs', cx, cy + 16);
+
+      // Legend
+      const lx = w * 0.6, ly = h * 0.25;
+      ctx.font = '12px -apple-system, sans-serif';
+      data.forEach((d, i) => {
+        const y = ly + i * 28;
+        ctx.fillStyle = d.color;
+        ctx.fillRect(lx, y, 12, 12);
+        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-muted').trim() || '#8b949e';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${d.label}: ${d.value} (${total > 0 ? Math.round(d.value / total * 100) : 0}%)`, lx + 18, y + 6);
+      });
+    }
+
+    function drawBarChart(canvasId, datasets, labels) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = rect.width - 32;
+      const h = 200;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.scale(dpr, dpr);
+
+      const pad = { top: 10, bottom: 24, left: 4, right: 4 };
+      const cw = w - pad.left - pad.right;
+      const ch = h - pad.top - pad.bottom;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const maxVal = Math.max(1, ...datasets.flatMap(ds => ds.data));
+      const barW = Math.min(20, (cw / labels.length - 4) / datasets.length);
+      const gap = (cw - barW * datasets.length * labels.length) / (labels.length + 1);
+      const colors = ['#3fb950', '#bc8cff'];
+
+      for (let i = 0; i < labels.length; i++) {
+        const xBase = pad.left + gap + i * (barW * datasets.length + gap);
+        const labelX = xBase + (barW * datasets.length) / 2;
+        for (let j = 0; j < datasets.length; j++) {
+          const x = xBase + j * barW;
+          const barH = (datasets[j].data[i] / maxVal) * ch;
+          ctx.fillStyle = colors[j % colors.length];
+          ctx.fillRect(Math.round(x), Math.round(pad.top + ch - barH), Math.round(barW - 1), Math.round(barH));
+        }
+        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-muted').trim() || '#8b949e';
+        ctx.font = '9px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(labels[i], labelX, h - pad.bottom + 6);
+      }
+
+      // Legend
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      const lx = w - 120, ly = 4;
+      datasets.forEach((ds, j) => {
+        const y = ly + j * 18;
+        ctx.fillStyle = colors[j % colors.length];
+        ctx.fillRect(lx, y + 2, 10, 10);
+        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-muted').trim() || '#8b949e';
+        ctx.font = '11px -apple-system, sans-serif';
+        ctx.fillText(ds.label, lx + 14, y);
+      });
+    }
+
+    // ─────────────────────────────────────────────
+    // Render — Dashboard
+    // ─────────────────────────────────────────────
+    function renderApp() {
+      const hash = location.hash.replace(/^#/, '') || '/';
+      if (hash.startsWith('/repo/')) {
+        const repoName = decodeURIComponent(hash.slice(6));
+        renderRepoDetail(repoName);
+      } else {
+        renderDashboard();
+      }
+    }
+
+    function renderDashboard() {
+      const container = document.getElementById('app');
+      const query = STATE.searchQuery.toLowerCase();
+      const sortBy = STATE.sortBy;
+      const repoGroups = STATE.repoGroups || {};
+
+      const filtered = STATE.allPRs.filter(item => {
+        const pr = item.pr;
+        const st = pr.merged_at ? 'merged' : pr.state;
+        if (STATE.currentFilter !== 'all' && st !== STATE.currentFilter) return false;
+        if (query) {
+          const haystack = (pr.title + ' ' + item.repo + ' ' + (pr.labels || []).map(l => l.name).join(' ') + ' #' + pr.number + ' ' + (pr.user && pr.user.login || '')).toLowerCase();
+          if (!haystack.includes(query)) return false;
+        }
+        return true;
+      });
+
+      // Sort
+      const sorters = {
+        updated: (a, b) => new Date(b.pr.updated_at) - new Date(a.pr.updated_at),
+        oldest: (a, b) => new Date(a.pr.created_at) - new Date(b.pr.created_at),
+        alpha: (a, b) => a.repo.localeCompare(b.repo) || a.pr.number - b.pr.number,
+        status: (a, b) => {
+          const order = { open: 0, closed: 1, merged: 2 };
+          const sa = a.pr.merged_at ? 2 : order[a.pr.state] || 1;
+          const sb = b.pr.merged_at ? 2 : order[b.pr.state] || 1;
+          return sa - sb;
+        },
+        comments: (a, b) => (b.pr.comments || 0) - (a.pr.comments || 0),
+        age: (a, b) => new Date(a.pr.created_at) - new Date(b.pr.created_at),
+      };
+      filtered.sort(sorters[sortBy] || sorters.updated);
+
+      // Stats
+      const stats = computeStats(STATE.allPRs);
+      const mergeRate = stats.total > 0 ? Math.round(stats.merged / stats.total * 100) : 0;
+
+      const now = new Date();
+      const monthMs = 30 * 24 * 60 * 60 * 1000;
+      const twoWeekMs = 14 * 24 * 60 * 60 * 1000;
+
+      let html = '';
+
+      // ── Stats bar ──
+      html += `
+        <div class="stats-overview">
+          <div class="stat-card open"><div class="val" style="color:var(--open)">${stats.open}</div><div class="lbl">Open</div></div>
+          <div class="stat-card merged"><div class="val" style="color:var(--merged)">${stats.merged}</div><div class="lbl">Merged</div></div>
+          <div class="stat-card closed"><div class="val" style="color:var(--red)">${stats.closed}</div><div class="lbl">Closed</div></div>
+          <div class="stat-card rate"><div class="val" style="color:var(--accent)">${mergeRate}%</div><div class="lbl">Merge Rate</div></div>
+          <div class="stat-card stale"><div class="val" style="color:${stats.stale > 0 ? 'var(--orange)' : 'var(--text-muted)'}">${stats.stale}</div><div class="lbl">Stale (>30d)</div></div>
+          <div class="stat-card"><div class="val" style="color:var(--text)">${stats.createdThisWeek}</div><div class="lbl">Created This Week</div></div>
+        </div>`;
+
+      // ── Filter pills ──
+      html += `<div class="stats-row" style="padding:0;margin-bottom:14px">`;
+      for (const [key, label] of [['all', 'All'], ['open', 'Open'], ['merged', 'Merged'], ['closed', 'Closed']]) {
+        const count = key === 'all' ? stats.total : stats[key] || 0;
+        html += `<div class="stat-pill ${STATE.currentFilter === key ? 'active' : ''}" onclick="setFilter('${key}')"><span class="num">${count}</span><span class="lbl">${label}</span></div>`;
+      }
+      html += `</div>`;
+
+      // ── Charts ──
+      if (stats.weeklyCreated.some(d => d.count > 0) || stats.weeklyMerged.some(d => d.count > 0)) {
+        html += `
+          <div class="charts-row">
+            <div class="chart-card">
+              <h3>PRs Over Time (weekly)</h3>
+              <canvas id="chartBar"></canvas>
+            </div>
+            <div class="chart-card">
+              <h3>Status Distribution</h3>
+              <canvas id="chartDonut"></canvas>
+            </div>
+          </div>`;
+      }
+
+      // ── Repo sections ──
+      const grouped = {};
+      for (const item of filtered) {
+        if (!grouped[item.repo]) grouped[item.repo] = { prs: [], type: item.type };
+        grouped[item.repo].prs.push(item.pr);
+      }
+
+      const sorted = Object.entries(grouped).sort((a, b) => {
+        const aOpen = a[1].prs.filter(p => p.state === 'open').length;
+        const bOpen = b[1].prs.filter(p => p.state === 'open').length;
+        return bOpen - aOpen || a[0].localeCompare(b[0]);
+      });
+
+      for (const [repoName, group] of sorted) {
+        const isVercel = repoName.startsWith('vercel/');
+        const isCollab = group.type === 'collaborator';
+        const badgeClass = isVercel ? 'badge-vercel' : isCollab ? 'badge-collaborator' : group.type === 'community' ? 'badge-community' : 'badge-community';
+        const badgeText = isVercel ? 'Vercel' : isCollab ? 'Collaborator' : 'Community';
+
+        const rStats = stats.repoStats[repoName] || { total: 0, open: 0, merged: 0, closed: 0 };
+        const rMergePct = rStats.total > 0 ? Math.round(rStats.merged / rStats.total * 100) : 0;
+        const isCollapsed = STATE.collapsedRepos.has(repoName);
+
+        html += `
+          <div class="repo-section" data-repo="${repoName}">
+            <div class="repo-header" onclick="toggleRepo('${repoName}')">
+              <svg class="repo-chevron ${isCollapsed ? 'collapsed' : ''}" viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z"/></svg>
+              <a class="repo-name" href="https://github.com/${repoName}" target="_blank" onclick="event.stopPropagation()">${repoName}</a>
+              <span class="repo-badge ${badgeClass}">${badgeText}</span>
+              <div class="repo-pr-count">
+                ${rStats.open > 0 ? `<span style="color:var(--open)">\u25CF ${rStats.open}</span>` : ''}
+                ${rStats.merged > 0 ? `<span style="color:var(--merged)">\u25CF ${rStats.merged}</span>` : ''}
+                ${rStats.closed > 0 ? `<span style="color:var(--red)">\u25CF ${rStats.closed}</span>` : ''}
+              </div>
+            </div>
+            <div class="repo-meta">
+              <span>${rStats.total} PRs</span>
+              <span style="color:var(--merged)">${rMergePct}% merged</span>
+              <a onclick="event.stopPropagation();navigateTo('/repo/${encodeURIComponent(repoName)}')" style="cursor:pointer;font-size:12px">Details &rarr;</a>
+            </div>
+            <div class="merge-progress"><div class="merge-progress-bar" style="width:${rMergePct}%;background:var(--merged)"></div></div>
+            <div class="repo-body ${isCollapsed ? 'collapsed' : ''}">
+              <div class="timeline" style="margin-top:4px">
+        `;
+
+        const repoPRs = group.prs.sort((a, b) => {
+          const so = { open: 0, closed: 1 };
+          const am = a.merged_at ? 2 : so[a.state] || 1;
+          const bm = b.merged_at ? 2 : so[b.state] || 1;
+          if (am !== bm) return am - bm;
+          return new Date(b.updated_at) - new Date(a.updated_at);
+        });
+
+        for (const pr of repoPRs) {
+          html += renderPRCard(pr);
+        }
+
+        html += `</div></div></div>`;
+      }
+
+      if (sorted.length === 0) {
+        html += `<div class="empty-msg">No PRs match your filters.</div>`;
+      }
+
+      // Status bar
+      const statusBar = `
+        <div class="status-bar">
+          <span>${filtered.length} PR${filtered.length !== 1 ? 's' : ''} ${STATE.currentFilter !== 'all' ? '(' + STATE.currentFilter + ')' : ''}</span>
+          <span style="font-size:12px">Last updated: ${STATE.generatedAt ? new Date(STATE.generatedAt).toLocaleString() : '-'}</span>
+        </div>`;
+
+      container.innerHTML = statusBar + html;
+
+      // Draw charts after DOM update
+      if (stats.weeklyCreated.some(d => d.count > 0) || stats.weeklyMerged.some(d => d.count > 0)) {
+        setTimeout(() => {
+          drawDonut('chartDonut', [
+            { label: 'Open', value: stats.open, color: '#3fb950' },
+            { label: 'Merged', value: stats.merged, color: '#bc8cff' },
+            { label: 'Closed', value: stats.closed, color: '#f85149' },
+          ]);
+          const labels = stats.weeklyCreated.map(d => d.label);
+          drawBarChart('chartBar', [
+            { label: 'Created', data: stats.weeklyCreated.map(d => d.count) },
+            { label: 'Merged', data: stats.weeklyMerged.map(d => d.count) },
+          ], labels);
+        }, 50);
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // PR Card
+    // ─────────────────────────────────────────────
+    function renderPRCard(pr) {
+      const status = getStatus(pr);
+      const date = pr.merged_at || pr.closed_at || pr.updated_at;
+      const labels = (pr.labels || []).map(l =>
+        `<span class="pr-label" style="color:#${l.color};background:rgba(${parseInt(l.color.slice(0,2),16)},${parseInt(l.color.slice(2,4),16)},${parseInt(l.color.slice(4,6),16)},0.12)">${escapeHtml(l.name)}</span>`
+      ).join('');
+
+      const now = new Date().getTime();
+      const updated = new Date(pr.updated_at).getTime();
+      const age = now - updated;
+      const monthMs = 30 * 24 * 60 * 60 * 1000;
+      const twoWeekMs = 14 * 24 * 60 * 60 * 1000;
+      let staleClass = '';
+      let staleTag = '';
+      if (pr.state === 'open') {
+        if (age > monthMs) { staleClass = 'stale'; staleTag = '<span class="stale-tag stale">Stale</span>'; }
+        else if (age > twoWeekMs) { staleClass = 'aging'; staleTag = '<span class="stale-tag aging">Aging</span>'; }
+      }
+
+      const checkRuns = pr._checkRuns;
+      let ciHtml = '';
+      if (checkRuns && checkRuns.length > 0) {
+        const pass = checkRuns.filter(r => r.conclusion === 'success').length;
+        const fail = checkRuns.filter(r => r.conclusion === 'failure' || r.conclusion === 'timed_out').length;
+        const total = checkRuns.length;
+        if (total > 0) {
+          ciHtml = `<span style="font-size:11px;display:flex;align-items:center;gap:3px">
+            ${fail > 0 ? `<span style="color:var(--red)">\u2716 ${fail}</span>` : ''}
+            ${pass > 0 ? `<span style="color:var(--green)">\u2714 ${pass}</span>` : ''}
+            ${total > pass + fail ? `<span style="color:var(--text-muted)">\u25D0 ${total - pass - fail}</span>` : ''}
+          </span>`;
+        }
+      }
+
+      return `
+        <div class="pr-card ${staleClass}">
+          <button class="copy-btn" onclick="event.stopPropagation();copyPRNumber(${pr.number})">Copy #</button>
+          <div class="pr-icon ${status.cls}">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M7.177 3.073L9.573.677A.25.25 0 0110 .854v4.792a.25.25 0 01-.427.177L7.177 3.427a.25.25 0 010-.354zM3.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zM11 2.5h-1V4h1a1 1 0 011 1v5.628a2.251 2.251 0 101.5 0V5A2.5 2.5 0 0011 2.5zm1 10.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM3.75 12a.75.75 0 100 1.5.75.75 0 000-1.5z"/></svg>
+          </div>
+          <div class="pr-body">
+            <div class="pr-title">
+              <a href="${pr.html_url}" target="_blank">${escapeHtml(pr.title)}</a>
+            </div>
+            <div class="pr-meta">
+              <span class="pr-status ${status.cls}"><span class="pr-dot ${status.cls}"></span> ${status.text}</span>
+              <span style="font-weight:600">#${pr.number}</span>
+              ${pr.user ? `<span>${escapeHtml(pr.user.login)}</span>` : ''}
+              ${staleTag}
+              ${labels}
+            </div>
+            ${pr.body ? `<div class="pr-desc">${escapeHtml(pr.body.substring(0, 180))}</div>` : ''}
+          </div>
+          <div class="pr-right">
+            <div class="pr-date">${timeAgo(date)}</div>
+            ${pr.comments ? `<div class="pr-comments"><svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0113.25 12H9.06l-2.573 2.573A1.458 1.458 0 014 13.543V12H2.75A1.75 1.75 0 011 10.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 01.75.75v2.19l2.72-2.72a.75.75 0 01.53-.22h4.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/></svg> ${pr.comments}</div>` : ''}
+            ${ciHtml}
+          </div>
+        </div>`;
+    }
+
+    function getStatus(pr) {
+      if (pr.merged_at) return { text: 'Merged', cls: 'merged' };
+      if (pr.state === 'open') return { text: 'Open', cls: 'open' };
+      return { text: 'Closed', cls: 'closed' };
+    }
+
+    function timeAgo(dateStr) {
+      const now = new Date();
+      const date = new Date(dateStr);
+      const sec = Math.floor((now - date) / 1000);
+      if (sec < 60) return 'just now';
+      const m = Math.floor(sec / 60);
+      if (m < 60) return `${m}m ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h}h ago`;
+      const d = Math.floor(h / 24);
+      if (d < 30) return `${d}d ago`;
+      const mo = Math.floor(d / 30);
+      return `${mo}mo ago`;
+    }
+
+    // ─────────────────────────────────────────────
+    // Repo Detail Page
+    // ─────────────────────────────────────────────
+    function renderRepoDetail(repoName) {
+      const container = document.getElementById('app');
+      const prs = STATE.allPRs.filter(item => item.repo === repoName);
+      const group = STATE.repoGroups[repoName];
+      if (prs.length === 0) {
+        container.innerHTML = `<div class="empty-msg">No PRs found for <strong>${escapeHtml(repoName)}</strong>.</div>`;
+        return;
+      }
+
+      const stats = { open: 0, merged: 0, closed: 0 };
+      for (const item of prs) {
+        if (item.pr.merged_at) stats.merged++;
+        else if (item.pr.state === 'open') stats.open++;
+        else stats.closed++;
+      }
+      const total = prs.length;
+      const mergeRate = total > 0 ? Math.round(stats.merged / total * 100) : 0;
+
+      const isVercel = repoName.startsWith('vercel/');
+      const isCollab = group && group.type === 'collaborator';
+      const badgeClass = isVercel ? 'badge-vercel' : isCollab ? 'badge-collaborator' : 'badge-community';
+      const badgeText = isVercel ? 'Vercel' : isCollab ? 'Collaborator' : 'Community';
+
+      let html = `
+        <div class="back-bar">
+          <a onclick="navigateTo('/')">&larr; Dashboard</a>
+        </div>
+        <div class="repo-detail-header">
+          <h2><a href="https://github.com/${repoName}" target="_blank">${repoName}</a></h2>
+          <span class="repo-badge ${badgeClass}">${badgeText}</span>
+        </div>
+        <div class="detail-stats">
+          <div class="stat-card open"><div class="val" style="color:var(--open)">${stats.open}</div><div class="lbl">Open</div></div>
+          <div class="stat-card merged"><div class="val" style="color:var(--merged)">${stats.merged}</div><div class="lbl">Merged</div></div>
+          <div class="stat-card closed"><div class="val" style="color:var(--red)">${stats.closed}</div><div class="lbl">Closed</div></div>
+          <div class="stat-card rate"><div class="val" style="color:var(--accent)">${mergeRate}%</div><div class="lbl">Merge Rate</div></div>
+        </div>
+        <div class="merge-progress" style="margin-bottom:16px"><div class="merge-progress-bar" style="width:${mergeRate}%;background:var(--merged)"></div></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div class="search-box" style="max-width:300px">
+            <svg class="search-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M10.68 11.74a6 6 0 01-7.922-8.982 6 6 0 018.982 7.922l3.04 3.04a.749.749 0 01-.326 1.275.749.749 0 01-.734-.215zM11.5 7a4.499 4.499 0 10-8.997 0A4.499 4.499 0 0011.5 7z"/></svg>
+            <input type="text" id="detailSearch" placeholder="Filter PRs in this repo..." oninput="renderRepoDetail('${repoName}')">
+          </div>
+          <select class="sort-select" id="detailSort" onchange="renderRepoDetail('${repoName}')">
+            <option value="updated">Most Recent</option>
+            <option value="oldest">Oldest</option>
+            <option value="status">By Status</option>
+            <option value="comments">Most Comments</option>
+          </select>
+        </div>
+        <div class="timeline">`;
+
+      const query = (document.getElementById('detailSearch') ? document.getElementById('detailSearch').value : '').toLowerCase();
+      const sortBy = document.getElementById('detailSort') ? document.getElementById('detailSort').value : 'updated';
+
+      let filtered = prs.filter(item => {
+        if (!query) return true;
+        const pr = item.pr;
+        return (pr.title + ' #' + pr.number).toLowerCase().includes(query);
+      });
+
+      const sorters = {
+        updated: (a, b) => new Date(b.pr.updated_at) - new Date(a.pr.updated_at),
+        oldest: (a, b) => new Date(a.pr.created_at) - new Date(b.pr.created_at),
+        status: (a, b) => {
+          const order = { open: 0, closed: 1, merged: 2 };
+          const sa = a.pr.merged_at ? 2 : order[a.pr.state] || 1;
+          const sb = b.pr.merged_at ? 2 : order[b.pr.state] || 1;
+          return sa - sb;
+        },
+        comments: (a, b) => (b.pr.comments || 0) - (a.pr.comments || 0),
+      };
+      filtered.sort(sorters[sortBy] || sorters.updated);
+
+      for (const item of filtered) {
+        html += renderPRCard(item.pr);
+      }
+
+      html += `</div>
+        <div class="status-bar" style="margin-top:12px">
+          <span>${filtered.length} of ${total} PRs</span>
+        </div>`;
+
+      container.innerHTML = html;
+    }
+
+    // ─────────────────────────────────────────────
+    // Navigation
+    // ─────────────────────────────────────────────
+    function navigateTo(path) {
+      location.hash = path;
+    }
+
+    window.addEventListener('hashchange', renderApp);
+
+    // ─────────────────────────────────────────────
+    // Actions
+    // ─────────────────────────────────────────────
+    function setFilter(key) {
+      STATE.currentFilter = key;
+      renderApp();
+    }
+
+    function toggleRepo(repoName) {
+      if (STATE.collapsedRepos.has(repoName)) STATE.collapsedRepos.delete(repoName);
+      else STATE.collapsedRepos.add(repoName);
+      // Re-render but preserve collapse state
+      renderApp();
+    }
+
+    function copyPRNumber(num) {
+      navigator.clipboard.writeText(`#${num}`).then(() => showToast(`Copied #${num}`));
+    }
+
+    function collapseAll() {
+      for (const repo of Object.keys(STATE.repoGroups)) STATE.collapsedRepos.add(repo);
+      renderApp();
+    }
+
+    function expandAll() {
+      STATE.collapsedRepos.clear();
+      renderApp();
+    }
+
+    // ─────────────────────────────────────────────
+    // Search
+    // ─────────────────────────────────────────────
+    let searchTimeout;
+    function onSearchInput() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        STATE.searchQuery = document.getElementById('globalSearch') ? document.getElementById('globalSearch').value : '';
+        renderApp();
+      }, 150);
+    }
+
+    // ─────────────────────────────────────────────
+    // Export CSV
+    // ─────────────────────────────────────────────
+    function showExportModal() {
+      const items = STATE.allPRs;
+      let csv = 'Repo,Number,Title,State,Created,Updated,Merged,Comments,URL\n';
+      for (const item of items) {
+        const pr = item.pr;
+        const title = '"' + (pr.title || '').replace(/"/g, '""') + '"';
+        csv += `${item.repo},${pr.number},${title},${pr.state},${pr.created_at},${pr.updated_at},${pr.merged_at || ''},${pr.comments || 0},${pr.html_url}\n`;
+      }
+      document.getElementById('exportText').value = csv;
+      document.getElementById('exportModal').classList.add('show');
+    }
+
+    function closeExportModal() { document.getElementById('exportModal').classList.remove('show'); }
+
+    function copyExport() {
+      const el = document.getElementById('exportText');
+      el.select();
+      navigator.clipboard.writeText(el.value).then(() => showToast('CSV copied!'));
+      closeExportModal();
+    }
+
+    // ─────────────────────────────────────────────
+    // Notifications
+    // ─────────────────────────────────────────────
+    let notifiedPRs = new Set();
+    function initNotifications() {
+      try {
+        const stored = JSON.parse(localStorage.getItem('prdash_notified') || '[]');
+        notifiedPRs = new Set(stored);
+      } catch { notifiedPRs = new Set(); }
+    }
+
+    function checkNewPRs() {
+      if (!('Notification' in window) || Notification.permission === 'denied') return;
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+        return;
+      }
+      if (Notification.permission !== 'granted') return;
+
+      const openPRs = STATE.allPRs.filter(item => item.pr.state === 'open');
+      for (const item of openPRs) {
+        if (!notifiedPRs.has(item.pr.html_url)) {
+          // New PR detected
+          notifiedPRs.add(item.pr.html_url);
+          const n = new Notification('New PR: ' + item.repo, {
+            body: item.pr.title.substring(0, 120),
+            icon: 'https://github.githubassets.com/favicons/favicon.svg',
+            tag: item.pr.html_url,
+          });
+          n.onclick = () => window.open(item.pr.html_url);
+        }
+      }
+      // Also check for new comments on watched PRs
+      for (const item of STATE.allPRs) {
+        const key = item.pr.html_url + '-c' + (item.pr.comments || 0);
+        if (!notifiedPRs.has(key) && item.pr.comments > 0) {
+          notifiedPRs.add(key);
+          // Don't notify for initial comments, only changes
+        }
+      }
+      localStorage.setItem('prdash_notified', JSON.stringify([...notifiedPRs]));
+    }
+
+    function requestNotificationPermission() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // Keyboard shortcuts
+    // ─────────────────────────────────────────────
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
+        if (e.key === 'Escape') { e.target.blur(); }
+        return;
+      }
+      switch (e.key) {
+        case '/': e.preventDefault(); const sb = document.getElementById('search'); if (sb) sb.focus(); break;
+        case 'r': fetchPRs(); break;
+        case 'c': collapseAll(); break;
+        case 'C': expandAll(); break;
+        case '1': setFilter('all'); break;
+        case '2': setFilter('open'); break;
+        case '3': setFilter('merged'); break;
+        case '4': setFilter('closed'); break;
+        case 'e': showExportModal(); break;
+        case '?':
+          clearTimeout(window._kbdTimer);
+          document.getElementById('kbdHint').classList.add('show');
+          window._kbdTimer = setTimeout(() => document.getElementById('kbdHint').classList.remove('show'), 3000);
+          break;
+      }
+    });
+
+    // ─────────────────────────────────────────────
+    // Init
+    // ─────────────────────────────────────────────
+    async function init() {
+      initAuth();
+      initNotifications();
+      await fetchPRs();
+      // Check for notifications on next refresh
+      let lastNotifCheck = Date.now();
+      if (STATE.autoRefresh) {
+        STATE.refreshTimer = setInterval(async () => {
+          await fetchPRs();
+          if (Date.now() - lastNotifCheck > 60000) {
+            checkNewPRs();
+            lastNotifCheck = Date.now();
+          }
+        }, 60000);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
