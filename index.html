@@ -772,28 +772,24 @@
       document.getElementById('authError').textContent = '';
     }
 
+    const PROXY_WORKER = 'https://prism-proxy.chipped-act.workers.dev';
+
     function apiBase() {
-      return location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-        ? '' : null;
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        return '';
+      }
+      return PROXY_WORKER;
     }
 
     async function deviceFetch(url, body) {
-      const local = apiBase();
-      if (local) {
-        const ep = url.includes('device/code') ? '/api/device-code' : '/api/device-token';
-        const r = await fetch(local + ep, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
-        return r.json();
-      }
-      const r = await fetch(url, {
-        method: 'POST',
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-        body
-      });
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        throw new Error(err.error_description || err.error || 'Device code request failed');
-      }
-      return r.json();
+      const base = apiBase();
+      const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      const ep = url.includes('device/code') ? (isLocal ? '/api/device-code' : '/device-code')
+        : (isLocal ? '/api/device-token' : '/device-token');
+      const r = await fetch(base + ep, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+      const data = await r.json();
+      if (data.error) throw new Error(data.error_description || data.error);
+      return data;
     }
 
     async function startDeviceFlow() {
@@ -808,7 +804,6 @@
       try {
         const form = new URLSearchParams({ client_id: CLIENT_ID, scope: 'repo' });
         const data = await deviceFetch('https://github.com/login/device/code', form);
-        if (data.error) throw new Error(data.error_description || data.error);
         btn.style.display = 'none';
         display.style.display = 'block';
         codeEl.textContent = data.user_code;
@@ -858,12 +853,7 @@
           } catch (e) {}
         }, (data.interval || 5) * 1000);
       } catch (e) {
-        if (e.message.includes('Failed to fetch') || e.name === 'TypeError') {
-          errorEl.innerHTML = 'Device flow is blocked by browser CORS policy on GitHub Pages. '
-            + '<a href="#" onclick="togglePatView(event)" style="color:var(--accent)">Use a Personal Access Token</a> instead.';
-        } else {
-          errorEl.textContent = e.message;
-        }
+        errorEl.innerHTML = e.message + ' — <a href="#" onclick="togglePatView(event)" style="color:var(--accent)">Use a Personal Access Token</a> instead.';
         resetDeviceView(btn, display);
       }
     }
