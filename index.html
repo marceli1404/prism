@@ -828,6 +828,7 @@
               grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
             });
             const pt = await deviceFetch('https://github.com/login/oauth/access_token', pollForm);
+            console.log('poll result:', JSON.stringify(pt));
             if (pt.access_token) {
               clearInterval(deviceFlowTimer);
               clearInterval(dotInterval);
@@ -861,7 +862,7 @@
               errorEl.textContent = 'Authorization denied.';
               resetDeviceView(btn, display);
             } else {
-              console.log('poll:', pt);
+              console.log('poll unknown:', pt);
             }
           } catch (e) { console.error('poll err:', e); }
         }, (data.interval || 5) * 1000);
