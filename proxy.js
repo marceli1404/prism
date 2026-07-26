@@ -14,9 +14,8 @@ const mime = {
   '.svg': 'image/svg+xml'
 };
 
-function proxyPost(urlPath, reqBody, callback) {
+function proxyPost(urlPath, bodyStr, callback) {
   const url = new URL(urlPath);
-  const data = JSON.stringify(reqBody);
   const opts = {
     hostname: url.hostname,
     port: 443,
@@ -25,7 +24,7 @@ function proxyPost(urlPath, reqBody, callback) {
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': Buffer.byteLength(data),
+      'Content-Length': Buffer.byteLength(bodyStr),
       'User-Agent': 'PRISM/1.0'
     }
   };
@@ -38,7 +37,7 @@ function proxyPost(urlPath, reqBody, callback) {
     });
   });
   r.on('error', callback);
-  r.write(data);
+  r.write(bodyStr);
   r.end();
 }
 
@@ -57,7 +56,6 @@ http.createServer((req, res) => {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
-      const params = new URLSearchParams(body);
       proxyPost('https://github.com/login/device/code', body, (err, data) => {
         if (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); return; }
         res.writeHead(200, { 'Content-Type': 'application/json' });
