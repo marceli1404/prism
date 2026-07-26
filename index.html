@@ -789,7 +789,7 @@
           body: form
         });
         if (!r.ok) {
-          const err = await r.json();
+          const err = await r.json().catch(() => ({}));
           throw new Error(err.error_description || err.error || 'Device code request failed');
         }
         const data = await r.json();
@@ -830,9 +830,7 @@
               setTimeout(() => { closeAuthModal(); document.getElementById('authSuccess').style.display = 'none'; }, 1500);
               showToast('Signed in as ' + STATE.user.login);
             } else if (pt.error === 'authorization_pending') {
-              // keep polling
             } else if (pt.error === 'slow_down') {
-              // interval increased by GitHub
             } else if (pt.error === 'expired_token') {
               clearInterval(deviceFlowTimer);
               clearInterval(dotInterval);
@@ -846,12 +844,15 @@
               errorEl.textContent = 'Authorization denied.';
               resetDeviceView(btn, display);
             }
-          } catch (e) {
-            // poll error, retry
-          }
+          } catch (e) {}
         }, (data.interval || 5) * 1000);
       } catch (e) {
-        errorEl.textContent = e.message;
+        if (e.message.includes('Failed to fetch') || e.name === 'TypeError') {
+          errorEl.innerHTML = 'Device flow is blocked by browser CORS policy on GitHub Pages. '
+            + '<a href="#" onclick="togglePatView(event)" style="color:var(--accent)">Use a Personal Access Token</a> instead.';
+        } else {
+          errorEl.textContent = e.message;
+        }
         resetDeviceView(btn, display);
       }
     }
