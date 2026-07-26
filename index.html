@@ -452,6 +452,9 @@
     .auth-modal .btn { width: 100%; justify-content: center; padding: 10px; font-size: 14px; }
     .auth-modal .error { color: var(--red); font-size: 12px; text-align: center; margin-top: 8px; }
     .auth-modal .success { color: var(--green); font-size: 14px; text-align: center; }
+    #deviceCodeDisplay { border: 1px dashed var(--border); border-radius: var(--radius); margin: 8px 0; }
+    #deviceCodeDisplay strong a { font-size: 14px; }
+    .auth-modal .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .auth-close {
       float: right;
       background: none; border: none; color: var(--text-muted);
@@ -611,12 +614,35 @@
   <div class="auth-modal-overlay" id="authModal">
     <div class="auth-modal">
       <button class="auth-close" onclick="closeAuthModal()">&times;</button>
-      <h2>GitHub Login</h2>
-      <p>Enter a <a href="https://github.com/settings/tokens" target="_blank">GitHub Personal Access Token</a> with <code>repo</code> scope to enable live data, CI status, and notifications.</p>
-      <input type="text" id="patInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
-      <button class="btn btn-primary" onclick="savePAT()">Sign In</button>
-      <div id="authError" class="error"></div>
-      <div id="authSuccess" class="success" style="display:none">Signed in successfully!</div>
+      <div id="authDeviceView">
+        <h2>Sign in with GitHub</h2>
+        <p>Use GitHub OAuth Device Flow to enable live CI data and notifications.</p>
+        <button class="btn btn-primary" onclick="startDeviceFlow()" id="deviceFlowBtn" style="justify-content:center;padding:10px;font-size:14px;width:100%">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right:6px"><path d="M8 1a4 4 0 00-4 4c0 1.2.45 2.2 1.2 3h-.05c-.7 0-1.35.25-1.85.7A3.8 3.8 0 002 12v1c0 .55.45 1 1 1h10c.55 0 1-.45 1-1v-1a3.8 3.8 0 00-1.3-2.8c-.5-.45-1.15-.7-1.85-.7h-.05A5 5 0 0012 5a4 4 0 00-4-4zm0 1.5c1.4 0 2.5 1.1 2.5 2.5S9.4 7.5 8 7.5 5.5 6.4 5.5 5 6.6 2.5 8 2.5zm-4 8c-.7 0-1.5.8-1.5 1.5v.5h11v-.5c0-.7-.8-1.5-1.5-1.5z"/></svg>
+          Sign in with GitHub
+        </button>
+        <div id="deviceCodeDisplay" style="display:none;text-align:center;padding:12px 0">
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Enter this code at <strong><a href="https://github.com/login/device" target="_blank">github.com/login/device</a></strong>:</p>
+          <div id="userCode" style="font-size:28px;font-weight:700;letter-spacing:4px;background:var(--bg);padding:12px;border-radius:8px;font-family:monospace;margin-bottom:12px"></div>
+          <p style="font-size:12px;color:var(--text-muted)">Waiting for authorization<span id="pollDots">.</span></p>
+          <button class="btn" onclick="cancelDeviceFlow()" style="margin-top:12px">Cancel</button>
+        </div>
+        <div id="authError" class="error"></div>
+        <div id="authSuccess" class="success" style="display:none">Signed in successfully!</div>
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);text-align:center">
+          <a href="#" onclick="togglePatView(event)" style="font-size:12px;color:var(--text-muted)">Or use a Personal Access Token</a>
+        </div>
+      </div>
+      <div id="authPatView" style="display:none">
+        <h2>GitHub Login</h2>
+        <p>Enter a <a href="https://github.com/settings/tokens" target="_blank">GitHub Personal Access Token</a> with <code>repo</code> scope.</p>
+        <input type="text" id="patInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+        <button class="btn btn-primary" onclick="savePAT()" style="width:100%;justify-content:center;padding:10px;font-size:14px">Sign In</button>
+        <div id="patError" class="error"></div>
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);text-align:center">
+          <a href="#" onclick="togglePatView(event)" style="font-size:12px;color:var(--text-muted)">&larr; Back to device flow</a>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -691,8 +717,11 @@
     })();
 
     // ─────────────────────────────────────────────
-    // Auth
+    // Auth — GitHub OAuth Device Flow
     // ─────────────────────────────────────────────
+    const CLIENT_ID = 'Ov23lirP2kQDQSbkA5fT';
+    let deviceFlowTimer = null;
+
     async function initAuth() {
       STATE.token = getStored('token', null);
       if (STATE.token) {
@@ -715,7 +744,6 @@
 
     function updateAuthUI() {
       const el = document.getElementById('authStatus');
-      const label = document.getElementById('authLabel');
       if (STATE.user) {
         el.className = 'auth-status authenticated';
         el.innerHTML = `<img class="avatar" src="${STATE.user.avatar_url}" alt=""> ${STATE.user.login}`;
@@ -725,13 +753,127 @@
       }
     }
 
-    function showAuthModal() { document.getElementById('authModal').classList.add('show'); }
-    function closeAuthModal() { document.getElementById('authModal').classList.remove('show'); document.getElementById('authError').textContent = ''; }
+    function showAuthModal() { document.getElementById('authModal').classList.add('show'); resetAuthViews(); }
+    function closeAuthModal() { document.getElementById('authModal').classList.remove('show'); cancelDeviceFlow(); }
+
+    function resetAuthViews() {
+      document.getElementById('authDeviceView').style.display = 'block';
+      document.getElementById('authPatView').style.display = 'none';
+      document.getElementById('authError').textContent = '';
+    }
+
+    function togglePatView(e) {
+      e.preventDefault();
+      const dv = document.getElementById('authDeviceView');
+      const pv = document.getElementById('authPatView');
+      const showPat = pv.style.display !== 'block';
+      dv.style.display = showPat ? 'none' : 'block';
+      pv.style.display = showPat ? 'block' : 'none';
+      document.getElementById('authError').textContent = '';
+    }
+
+    async function startDeviceFlow() {
+      const btn = document.getElementById('deviceFlowBtn');
+      const display = document.getElementById('deviceCodeDisplay');
+      const codeEl = document.getElementById('userCode');
+      const errorEl = document.getElementById('authError');
+      errorEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Starting...';
+
+      try {
+        const form = new URLSearchParams({ client_id: CLIENT_ID, scope: 'repo' });
+        const r = await fetch('https://github.com/login/device/code', {
+          method: 'POST',
+          headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: form
+        });
+        if (!r.ok) {
+          const err = await r.json();
+          throw new Error(err.error_description || err.error || 'Device code request failed');
+        }
+        const data = await r.json();
+        btn.style.display = 'none';
+        display.style.display = 'block';
+        codeEl.textContent = data.user_code;
+        let dots = 1;
+        const dotInterval = setInterval(() => {
+          dots = (dots % 3) + 1;
+          document.getElementById('pollDots').textContent = '.'.repeat(dots);
+        }, 500);
+
+        deviceFlowTimer = setInterval(async () => {
+          try {
+            const pollForm = new URLSearchParams({
+              client_id: CLIENT_ID,
+              device_code: data.device_code,
+              grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+            });
+            const pr = await fetch('https://github.com/login/oauth/access_token', {
+              method: 'POST',
+              headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: pollForm
+            });
+            const pt = await pr.json();
+            if (pt.access_token) {
+              clearInterval(deviceFlowTimer);
+              clearInterval(dotInterval);
+              deviceFlowTimer = null;
+              STATE.token = pt.access_token;
+              const ur = await fetch('https://api.github.com/user', {
+                headers: { Authorization: 'Bearer ' + STATE.token, Accept: 'application/vnd.github.v3+json' }
+              });
+              STATE.user = await ur.json();
+              setStored('token', STATE.token);
+              updateAuthUI();
+              document.getElementById('authSuccess').style.display = 'block';
+              setTimeout(() => { closeAuthModal(); document.getElementById('authSuccess').style.display = 'none'; }, 1500);
+              showToast('Signed in as ' + STATE.user.login);
+            } else if (pt.error === 'authorization_pending') {
+              // keep polling
+            } else if (pt.error === 'slow_down') {
+              // interval increased by GitHub
+            } else if (pt.error === 'expired_token') {
+              clearInterval(deviceFlowTimer);
+              clearInterval(dotInterval);
+              deviceFlowTimer = null;
+              errorEl.textContent = 'Code expired. Please try again.';
+              resetDeviceView(btn, display);
+            } else if (pt.error === 'access_denied') {
+              clearInterval(deviceFlowTimer);
+              clearInterval(dotInterval);
+              deviceFlowTimer = null;
+              errorEl.textContent = 'Authorization denied.';
+              resetDeviceView(btn, display);
+            }
+          } catch (e) {
+            // poll error, retry
+          }
+        }, (data.interval || 5) * 1000);
+      } catch (e) {
+        errorEl.textContent = e.message;
+        resetDeviceView(btn, display);
+      }
+    }
+
+    function resetDeviceView(btn, display) {
+      btn.disabled = false;
+      btn.textContent = 'Sign in with GitHub';
+      btn.style.display = '';
+      if (display) display.style.display = 'none';
+    }
+
+    function cancelDeviceFlow() {
+      if (deviceFlowTimer) { clearInterval(deviceFlowTimer); deviceFlowTimer = null; }
+      const btn = document.getElementById('deviceFlowBtn');
+      const display = document.getElementById('deviceCodeDisplay');
+      resetDeviceView(btn, display);
+    }
 
     async function savePAT() {
       const pat = document.getElementById('patInput').value.trim();
       if (!pat) return;
-      const errorEl = document.getElementById('authError');
+      const errorEl = document.getElementById('patError');
       errorEl.textContent = '';
       try {
         const r = await fetch('https://api.github.com/user', {
