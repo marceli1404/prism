@@ -772,6 +772,30 @@
       document.getElementById('authError').textContent = '';
     }
 
+    function apiBase() {
+      return location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+        ? '' : null;
+    }
+
+    async function deviceFetch(url, body) {
+      const local = apiBase();
+      if (local) {
+        const ep = url.includes('device/code') ? '/api/device-code' : '/api/device-token';
+        const r = await fetch(local + ep, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+        return r.json();
+      }
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+        body
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error_description || err.error || 'Device code request failed');
+      }
+      return r.json();
+    }
+
     async function startDeviceFlow() {
       const btn = document.getElementById('deviceFlowBtn');
       const display = document.getElementById('deviceCodeDisplay');
@@ -783,16 +807,8 @@
 
       try {
         const form = new URLSearchParams({ client_id: CLIENT_ID, scope: 'repo' });
-        const r = await fetch('https://github.com/login/device/code', {
-          method: 'POST',
-          headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: form
-        });
-        if (!r.ok) {
-          const err = await r.json().catch(() => ({}));
-          throw new Error(err.error_description || err.error || 'Device code request failed');
-        }
-        const data = await r.json();
+        const data = await deviceFetch('https://github.com/login/device/code', form);
+        if (data.error) throw new Error(data.error_description || data.error);
         btn.style.display = 'none';
         display.style.display = 'block';
         codeEl.textContent = data.user_code;
@@ -809,12 +825,7 @@
               device_code: data.device_code,
               grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
             });
-            const pr = await fetch('https://github.com/login/oauth/access_token', {
-              method: 'POST',
-              headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: pollForm
-            });
-            const pt = await pr.json();
+            const pt = await deviceFetch('https://github.com/login/oauth/access_token', pollForm);
             if (pt.access_token) {
               clearInterval(deviceFlowTimer);
               clearInterval(dotInterval);
