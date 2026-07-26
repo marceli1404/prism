@@ -623,7 +623,12 @@
         </button>
         <div id="deviceCodeDisplay" style="display:none;text-align:center;padding:12px 0">
           <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Enter this code at <strong><a href="https://github.com/login/device" target="_blank">github.com/login/device</a></strong>:</p>
-          <div id="userCode" style="font-size:28px;font-weight:700;letter-spacing:4px;background:var(--bg);padding:12px;border-radius:8px;font-family:monospace;margin-bottom:12px"></div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px">
+            <div id="userCode" style="font-size:28px;font-weight:700;letter-spacing:4px;background:var(--bg);padding:12px;border-radius:8px;font-family:monospace"></div>
+            <button onclick="copyUserCode()" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;cursor:pointer;color:var(--text-muted);display:flex" title="Copy code">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25Zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25Z"/></svg>
+            </button>
+          </div>
           <p style="font-size:12px;color:var(--text-muted)">Waiting for authorization<span id="pollDots">.</span></p>
           <button class="btn" onclick="cancelDeviceFlow()" style="margin-top:12px">Cancel</button>
         </div>
@@ -787,9 +792,7 @@
       const ep = url.includes('device/code') ? (isLocal ? '/api/device-code' : '/device-code')
         : (isLocal ? '/api/device-token' : '/device-token');
       const r = await fetch(base + ep, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
-      const data = await r.json();
-      if (data.error) throw new Error(data.error_description || data.error);
-      return data;
+      return r.json();
     }
 
     async function startDeviceFlow() {
@@ -804,6 +807,7 @@
       try {
         const form = new URLSearchParams({ client_id: CLIENT_ID, scope: 'repo' });
         const data = await deviceFetch('https://github.com/login/device/code', form);
+        if (data.error) throw new Error(data.error_description || data.error);
         btn.style.display = 'none';
         display.style.display = 'block';
         codeEl.textContent = data.user_code;
@@ -870,6 +874,11 @@
       const btn = document.getElementById('deviceFlowBtn');
       const display = document.getElementById('deviceCodeDisplay');
       resetDeviceView(btn, display);
+    }
+
+    function copyUserCode() {
+      const code = document.getElementById('userCode').textContent;
+      navigator.clipboard.writeText(code).then(() => showToast('Code copied!'));
     }
 
     async function savePAT() {
