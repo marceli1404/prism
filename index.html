@@ -796,6 +796,7 @@
     }
 
     async function startDeviceFlow() {
+      cancelDeviceFlow();
       const btn = document.getElementById('deviceFlowBtn');
       const display = document.getElementById('deviceCodeDisplay');
       const codeEl = document.getElementById('userCode');
@@ -832,11 +833,15 @@
               clearInterval(dotInterval);
               deviceFlowTimer = null;
               STATE.token = pt.access_token;
-              const ur = await fetch('https://api.github.com/user', {
-                headers: { Authorization: 'Bearer ' + STATE.token, Accept: 'application/vnd.github.v3+json' }
-              });
-              STATE.user = await ur.json();
               setStored('token', STATE.token);
+              try {
+                const ur = await fetch('https://api.github.com/user', {
+                  headers: { Authorization: 'Bearer ' + STATE.token, Accept: 'application/vnd.github.v3+json' }
+                });
+                STATE.user = await ur.json();
+              } catch (e) {
+                console.error('user fetch err:', e);
+              }
               updateAuthUI();
               document.getElementById('authSuccess').style.display = 'block';
               setTimeout(() => { closeAuthModal(); document.getElementById('authSuccess').style.display = 'none'; }, 1500);
