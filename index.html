@@ -807,7 +807,9 @@
       try {
         const form = new URLSearchParams({ client_id: CLIENT_ID, scope: 'repo' });
         const data = await deviceFetch('https://github.com/login/device/code', form);
+        console.log('device code response:', data);
         if (data.error) throw new Error(data.error_description || data.error);
+        if (!data.user_code) throw new Error('No user_code in response');
         btn.style.display = 'none';
         display.style.display = 'block';
         codeEl.textContent = data.user_code;
@@ -853,10 +855,13 @@
               deviceFlowTimer = null;
               errorEl.textContent = 'Authorization denied.';
               resetDeviceView(btn, display);
+            } else {
+              console.log('poll:', pt);
             }
-          } catch (e) {}
+          } catch (e) { console.error('poll err:', e); }
         }, (data.interval || 5) * 1000);
       } catch (e) {
+        console.error('device flow err:', e);
         errorEl.innerHTML = e.message + ' — <a href="#" onclick="togglePatView(event)" style="color:var(--accent)">Use a Personal Access Token</a> instead.';
         resetDeviceView(btn, display);
       }
