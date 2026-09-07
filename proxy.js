@@ -78,9 +78,18 @@ http.createServer((req, res) => {
     return;
   }
 
-  let p = req.url.split('?')[0];
-  if (p === '/') p = '/index.html';
-  p = path.join('.', p);
+  let reqPath = decodeURIComponent(req.url.split('?')[0]);
+  if (reqPath === '/') reqPath = '/index.html';
+
+  // Resolve against the web root and confirm the result stays inside it.
+  // Without this check a request like `/../../etc/passwd` escapes the
+  // serving directory and reads arbitrary files (directory traversal).
+  const root = path.resolve('.');
+  const p = path.resolve(root, '.' + path.posix.normalize(reqPath));
+  if (p !== root && !p.startsWith(root + path.sep)) {
+    res.writeHead(403); res.end('Forbidden'); return;
+  }
+
   fs.readFile(p, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     const ext = path.extname(p);
