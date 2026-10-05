@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = 8080;
+const HOST = '127.0.0.1';
+const MAX_BODY_BYTES = 16 * 1024;
 const mime = {
   '.html': 'text/html',
   '.js': 'application/javascript',
@@ -42,35 +44,48 @@ function proxyPost(urlPath, bodyStr, callback) {
 }
 
 http.createServer((req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  const allowedOrigins = new Set([`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`]);
+  if (origin && allowedOrigins.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
 
   if (req.method === 'OPTIONS') {
+    if (origin && !allowedOrigins.has(origin)) {
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
     res.writeHead(204);
     res.end();
     return;
   }
 
-  if (req.method === 'POST' && req.url === '/api/device-code') {
+  if (req.method === 'POST' && (req.url === '/api/device-code' || req.url === '/api/device-token')) {
     let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      proxyPost('https://github.com/login/device/code', body, (err, data) => {
-        if (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); return; }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(data));
-      });
+    let bytes = 0;
+    let tooLarge = false;
+    req.on('data', c => {
+      if (tooLarge) return;
+      bytes += c.length;
+      if (bytes > MAX_BODY_BYTES) {
+        tooLarge = true;
+        res.writeHead(413, { 'Content-Type': 'application/json', 'Connection': 'close' });
+        res.end(JSON.stringify({ error: 'Request body too large' }));
+        return;
+      }
+      body += c;
     });
-    return;
-  }
-
-  if (req.method === 'POST' && req.url === '/api/device-token') {
-    let body = '';
-    req.on('data', c => body += c);
     req.on('end', () => {
-      proxyPost('https://github.com/login/oauth/access_token', body, (err, data) => {
-        if (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); return; }
+      if (tooLarge) return;
+      const upstream = req.url === '/api/device-code'
+        ? 'https://github.com/login/device/code'
+        : 'https://github.com/login/oauth/access_token';
+      proxyPost(upstream, body, (err, data) => {
+        if (err) { res.writeHead(502, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'GitHub OAuth request failed' })); return; }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(data));
       });
@@ -96,4 +111,4 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': mime[ext] || 'application/octet-stream' });
     res.end(data);
   });
-}).listen(PORT, () => console.log('PRISM proxy at http://localhost:' + PORT));
+}).listen(PORT, HOST, () => console.log(`PRISM proxy at http://${HOST}:${PORT}`));
