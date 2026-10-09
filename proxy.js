@@ -93,7 +93,15 @@ http.createServer((req, res) => {
     return;
   }
 
-  let reqPath = decodeURIComponent(req.url.split('?')[0]);
+  let reqPath;
+  try {
+    reqPath = decodeURIComponent(req.url.split('?')[0]);
+  } catch (err) {
+    // Invalid percent-encoding must not throw from the HTTP request handler.
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Bad request');
+    return;
+  }
   if (reqPath === '/') reqPath = '/index.html';
 
   // Resolve against the web root and confirm the result stays inside it.
